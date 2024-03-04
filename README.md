@@ -18,7 +18,7 @@ The Processing within the PIP-eco pipeline uses publicly available tools: PROKKA
 
 ## Quick start and installing dependencies
 
-#### 1. Download RADAR pipeline on Github and syncronized environment.
+#### 1. Download PIP-eco pipeline on Github and syncronized environment.
 ```
 conda create -y pathotype.yaml
 git clone https://github.com/SBL-Kimlab/PIP-eco.git
@@ -30,7 +30,7 @@ git clone https://github.com/SBL-Kimlab/PIP-eco.git
 
 ## Usage
 
-In the RADAR pipeline, there are eight different modules in detail. Each process is performed according to defined modules. Users can directly use the individual modules as shown below, so all processes can be executed at once.
+In the PIP-eco pipeline, each process is performed according to defined modules. Users can directly use the individual modules as shown below, so all processes can be executed at once.
 
 
 ```
