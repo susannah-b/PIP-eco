@@ -14,7 +14,7 @@ The Processing within the PIP-eco pipeline uses publicly available tools: PROKKA
 
 
 ## Pipeline overview
-![RADAR](/radar.png)
+![PIPeco](/PIPeco.png)
 
 ## Quick start and installing dependencies
 
