@@ -3,3 +3,4 @@ data/**/* filter=lfs diff=lfs merge=lfs -text
 *.txt linguist-detectable=false
 * linguist-vendored
 *.py linguist-vendored=false
+data/** filter=lfs diff=lfs merge=lfs -text
