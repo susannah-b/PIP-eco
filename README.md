@@ -2,7 +2,7 @@
 Pathotype Identification Pipeline for *Escherichia coli* (PIP-eco)
 
 Overview:
-PIP-eco is a systematic framework designed to identify the pathotype of *Escherichia coli* (*E. coli*) using Whole Genome Sequencing (WGS) data, especially for those with hybrid pathotypes. PIP-eco pipeline consists of three infrastructures: **Marker gene alignment** process, **Pan-phylogenetic analysis** process, and **Pathogenicity Islands (PAIs) analysis** process. It accepts assembled bacterial strain collections as input, which can be either NCBI RefSeq records or user's own data in fasta format.
+PIP-eco is a comprehensive analytical tool designed to accurately identify and characterize *Escherichia coli* (*E. coli*) pathotypes. This pipeline facilitates detailed analysis for both single and hybrid pathotypes using whole genome sequencing (WGS) data. PIP-eco pipeline consists of three infrastructures: **Marker gene alignment** process, **Pan-phylogenetic analysis** process, and **Pathogenicity Islands (PAIs) analysis** process. It accepts assembled bacterial strain collections as input, which can be either NCBI RefSeq records or user's own data in fasta format.
 In the PIP-eco pipeline, genome annotation on the input WGS data is performed. Follwing this, the pathotype is determined based on marker genes. Additionally, by conducting phylogenetic analysis based on pan-genome analysis, the genetic distances are investigated, thus effectively discriminating hybrid pathotypes. Through these processes, the PIP-eco pipeline is utilized not only for pathotype assignment but also for tracing the trajectories of pathogenic factors. 
 The Processing within the PIP-eco pipeline uses publicly available tools: PROKKA, USEARCH, MUSCLE, and MAFFT. 
 
@@ -27,6 +27,7 @@ git clone https://github.com/SBL-Kimlab/PIP-eco.git
 ##### Overview of dependencies:
   * Genome annotation: [Prokka](https://github.com/tseemann/prokka)
   * Local alignment tool: [Usearch](https://www.drive5.com/usearch/)
+  * Sequence alignment tool: [Muscle](https://www.drive5.com/muscle/)
 
 ## Usage
 
@@ -36,25 +37,24 @@ In the PIP-eco pipeline, each process is performed according to defined modules.
 ```
 #Before executing the PIP-eco pipeline, it needs to declare /include/include.ipynb.
 
-import os; import os.path as path
+import os
+import os.path as path
 from time import sleep
-
-path_root = path.abspath( path.join( os.getcwd(), "..", ".." ) )
-path_local = path_root +  "/pipeco"; path_include = path_local +  "/include"
+path_root = path.abspath( path.join( os.getcwd(), ".." ) )
+path_local = path_root +  "/PIPeco"; path_include = path_root + "/include"
 file_include = path_include +  "/include.ipynb"
 %run $file_include
 ```
 
 ```
 #PIP-eco pipeline excution 
-os.chdir( path_local )
-pipeco = pipeline()
+os.chdir( path_root )
+pipeco = pathotype()
 
-pipeco.method.prokka() 
-pipeco.method.marker_alignment() 
-pipeco.method.draft_assignment() 
-pipeco.method.pan_phylo() 
-pipeco.method.pai_analysis() 
+pipeco.method.genome_annotation()
+pipeco.method.marker_alignment()
+pipeco.method.vf_based_phylogenetic()
+pipeco.method.pai_analysis()
 ```
 
 ## Reference
