@@ -1,27 +1,30 @@
 from pipeco import *
 import pipeco
 import re
+import os
+import matplotlib.pyplot as plt
+import matplotlib
 
 class patho_pai :
 	def __init__( self ) :
 		global path_data, path_software
 		global dir_result, dir_blast, dir_out
 		global path_genome0, path_genome_faa, path_genome_gff
-		path_data = pipeco.path_data
-		path_software = pipeco.path_software
-		path_output = pipeco.path_output
-		path_genome0 = pipeco.path_input
+		path_data = os.path.join(os.getcwd(), "data")
+		path_software = os.path.join(os.getcwd(), "software")
+		path_output = os.path.join(os.getcwd(), "pipeco_out")
+		path_genome0 = os.path.join(os.getcwd(), "input", "fasta")
 		path_genome_faa = path_genome0.replace( "/fasta", "/faa" )
 		path_genome_gff = path_genome0.replace( "/fasta", "/gff" )		
-		dir_out = path_output + "03.pai_out"
+		dir_out = path_output + "/03.pai_out"
 		os.system( "mkdir -p %s" %dir_out )
 	@staticmethod
 
 	def pai_align( ) :
 		def pai_alignment_run( file_faa ) :
 			os.system( "mkdir -p %s/alignment" %dir_out )
-			file_udb = "%spai_ecoli/pai_ecoli.udb" %path_data
-			file_usearch = "%susearch" %path_software
+			file_udb = "%s/pai_ecoli/pai_ecoli.udb" %path_data
+			file_usearch = "%s/usearch" %path_software
 			blast_out0 = "%s/alignment/%s" %( dir_out, file_faa.split( "/" )[ -1 ].replace( ".faa", ".aln" ) )
 			blast_out1 = "%s/alignment/%s" %( dir_out, file_faa.split( "/" )[ -1 ].replace( ".faa", ".b6" ) )
 			blast_out2 = "%s/alignment/%s" %( dir_out, file_faa.split( "/" )[ -1 ].replace( ".faa", ".m8" ) )
@@ -259,13 +262,58 @@ class patho_pai :
 		count_df.to_csv( dir_out + "/count.tsv", sep="\t", index=False )
 		details_df = details_df.sort_values( by = "genome" )
 		details_df.to_csv( dir_out + "/pai_significant_details.tsv", sep = "\t", index = False )
+
+		# Make a summary of PAI counts based on how many times they match to significant gene groups
+		summary_sig_data = []
+		genome_pai_counts = {}
+		for _, row in details_df.iterrows():
+			genome = row["genome"]
+			pai_counts_str = row["sig_group_pai_count"]
+			if genome not in genome_pai_counts:
+				genome_pai_counts[genome] = {}
+			if isinstance(pai_counts_str, str) and pai_counts_str != "Could not found seq":
+				try:
+					if pai_counts_str.startswith("{") and pai_counts_str.endswith("}"):
+						import ast
+						pai_dict = ast.literal_eval(pai_counts_str)
+					else:
+						continue
+				except:
+					continue
+			else:
+				pai_dict = pai_counts_str
+			
+			if not isinstance(pai_dict, dict):
+				continue
+				
+			# Count PAI occurrences for this genome (count each PAI once per significant group)
+			for pai in pai_dict.keys():
+				if pai in genome_pai_counts[genome]:
+					genome_pai_counts[genome][pai] += 1
+				else:
+					genome_pai_counts[genome][pai] = 1
+
+		# Convert the nested dictionary to a list of dictionaries for DataFrame creation
+		for genome, pai_counts in genome_pai_counts.items():
+			for pai, count in pai_counts.items():
+				summary_sig_data.append({
+					"genome": genome,
+					"PAI": pai,
+					"count": count
+				})
+
+		# Create and save the summary DataFrame
+		summary_sig_df = pd.DataFrame(summary_sig_data)
+		summary_sig_df = summary_sig_df.sort_values(by=["genome", "count", "PAI"])
+		summary_sig_df.to_csv(dir_out + "/summary_sig.tsv", sep="\t", index=False)
+
 		df_tsv = pd.read_csv( dir_out + "/count.tsv", sep = "\t" )
 		genomes = df_tsv[ "genome" ]
 		detected_gene_groups = df_tsv[ "detected_gene_group" ]
 		significant_groups = df_tsv[ "significant_group" ]
 		non_significant_groups = detected_gene_groups - significant_groups
 		x = range( len( genomes ) )
-		x_labels = [ label[:2] for label in genomes ]
+		x_labels = genomes.tolist() # Used full names for labelling
 		fig, ax = plt.subplots(figsize=(8, 5))
 		ax.bar( x, non_significant_groups, width = 0.6, label = "Non-significant Groups" )
 		ax.bar( x, significant_groups, width = 0.6, bottom = non_significant_groups, label = "Significant Groups" )
@@ -277,4 +325,8 @@ class patho_pai :
 			ax.text( i, v + 0.1, str( v ), color = "black", ha = "center" )
 		plt.tight_layout()
 		plt.savefig( dir_out + "/Sig_nonSig_group.svg" )
-		plt.savefig( dir_out + "/Sig_nonSig_group.png" )		
+		plt.savefig( dir_out + "/Sig_nonSig_group.png" )
+
+if __name__ == "__main__":
+    pa = patho_pai()
+    pa.pai_align()	

@@ -6,20 +6,20 @@ class pathotype_alignment :
 	def __init__( self ) :
 		global path_data, path_software
 		global dir_result, path_genome, dir_blast, dir_out
-		path_data = pipeco.path_data
-		path_software = pipeco.path_software
-		path_output = pipeco.path_output
-		path_genome0 = pipeco.path_input
+		path_data = os.path.join(os.getcwd(), "data") # Allows scripts to be run independently
+		path_software = os.path.join(os.getcwd(), "software")
+		path_output = os.path.join(os.getcwd(), "pipeco_out")
+		path_genome0 = os.path.join(os.getcwd(), "input", "fasta")
 		path_genome = path_genome0.replace( "/fasta", "/faa" )
-		dir_out = path_output + "01.marker_out"
+		dir_out = path_output + "/01.marker_out"
 		os.system( "mkdir -p %s" %dir_out )
 	@staticmethod
 
 	def marker_pathotype( ) :
 		def marker_alignment_run( file_faa ) :
 			os.system( "mkdir -p %s/alignment" %dir_out )
-			file_udb = "%smarker/marker_gene.udb" %path_data
-			file_usearch = "%susearch" %path_software
+			file_udb = "%s/marker/marker_gene.udb" %path_data
+			file_usearch = "%s/usearch" %path_software
 			blast_out0 = "%s/alignment/%s" %( dir_out, file_faa.split( "/" )[ -1 ].replace( ".faa", ".aln" ) )
 			blast_out1 = "%s/alignment/%s" %( dir_out, file_faa.split( "/" )[ -1 ].replace( ".faa", ".b6" ) )
 			blast_out2 = "%s/alignment/%s" %( dir_out, file_faa.split( "/" )[ -1 ].replace( ".faa", ".m8" ) )
@@ -54,8 +54,8 @@ class pathotype_alignment :
 				df_fil_drop = df_filter_group1.drop_duplicates( [ "query_locus_drop" ], keep = "first" )
 				df_filter_group0.to_csv( df_m8_edit0, index = False, sep = "\t" )
 				df_fil_drop.to_csv( df_m8_edit1, index = False, sep = "\t", header = True )
-			except :
-				print ( "error" )
+			except Exception as e:
+				print(f"Error in align_parse1: {e}")
 				shutil.copy( grep_m8, df_m8_edit0 )
 				shutil.copy( grep_m8, df_m8_edit1 )
 
@@ -108,7 +108,7 @@ class pathotype_alignment :
 			def check_expec_aiec( value ) :
 				expec_aiec_markers = ["45_marker", "46_marker", "47_marker", "52_marker", "53_marker", "54_marker", "55_marker"]
 				return check_iro( value ) or any( value.get( marker, 0 ) != 0 for marker in expec_aiec_markers )
-			category_counts = {"EAEC": [], "EIEC": [], "DAEC": [], "EPEC": [], "EIEC": [], "ETEC": [], "EHEC": [], "STEC": [], "ExPEC_AIEC": [], "hybrid": {}, "none": []}
+			category_counts = {"EAEC": [], "EIEC": [], "DAEC": [], "EPEC": [], "ETEC": [], "EHEC": [], "STEC": [], "ExPEC_AIEC": [], "hybrid": {}, "none": []} # Removed duplicate
 			for key, value in dic_hit_marker.items() :
 				if all( val == 0 for val in value.values() ) :
 					category_counts[ "none" ].append( key )
@@ -176,6 +176,7 @@ class pathotype_alignment :
 		category_counts = categorize_pathotype( dic_hit_marker )
 		df_marker = pd.DataFrame( dic_hit_marker ).T
 		
+		# Note: samples expected as 'GCF_[Number]' format otherwise this will fail
 		df_marker[ "index_num" ] = df_marker.index.str.extract(r'(\d+)', expand = False ).astype( int )
 		df_marker = df_marker.sort_values( by = "index_num", ascending = True ).drop(columns = "index_num" )
 		df_marker.to_csv( dir_out + "/01.marker_out.tsv", sep = "\t" )
@@ -189,22 +190,68 @@ class pathotype_alignment :
 
 		scatter_data = scatter_data.sort_values( by = [ "marker_num", "strain_num" ] )
 
+		# Modified graph: group by pathotype and adjust spacing
+		# Define the desired pathotype order
+		pathotype_order = ["EAEC", "EIEC", "DAEC", "EPEC", "ETEC", "EHEC", "STEC", "ExPEC_AIEC", "hybrid", "none"]
+		# Generate sorted_strains grouped by pathotype
+		sorted_strains = []
+		for pathotype in pathotype_order:
+			if pathotype == "hybrid":
+				strains = list(category_counts["hybrid"].keys())
+			else:
+				strains = category_counts[pathotype]
+			# Sort strains within the pathotype by numeric value
+			strains_sorted = sorted(strains, key=lambda x: int(re.search(r'G.*_(\d+)', x).group(1)))
+			sorted_strains.extend(strains_sorted)
+		# Determine start/end indices for each pathotype group
+		group_positions = {}
+		current_idx = 0
+		for pathotype in pathotype_order:
+			if pathotype == "hybrid":
+				count = len(category_counts["hybrid"])
+			else:
+				count = len(category_counts[pathotype])
+			if count == 0:
+				continue
+			start = current_idx
+			end = current_idx + count - 1
+			group_positions[pathotype] = (start, end)
+			current_idx += count
+
+		# Create a categorical ordering based on the sorted strain names
+		strain_order = pd.CategoricalDtype(categories=sorted_strains, ordered=True)
+		scatter_data["strain_cat"] = scatter_data["strain"].astype(strain_order)
+
 		zero_data = scatter_data[ scatter_data[ "value" ] == 0 ]
 		non_zero_data = scatter_data[ scatter_data[ "value" ] > 0 ]
 		colors = [ "#3679F5", "#55D557", "#FF0404" ]
 		n_bins = 100; cmap_name = 'custom_cmap'
 		cm = LinearSegmentedColormap.from_list( cmap_name, colors, N = n_bins )
+
 		plt.figure( figsize = ( 30, 25 ) )
-		sns.scatterplot( data = zero_data, y = "marker_num", x = "strain_num", marker = 'x', color = 'black', s = 20 )
-		sns.scatterplot( data = non_zero_data, y = "marker_num", x = "strain_num", size = "value", hue = "value", palette = cm, sizes = (100, 200) )
+		sns.scatterplot( data = zero_data, y = "marker_num", x = "strain_cat", marker = 'x', color = 'black', s = 20 )
+		sns.scatterplot( data = non_zero_data, y = "marker_num", x = "strain_cat", size = "value", hue = "value", palette = cm, sizes = (100, 200) )
 		plt.yticks( ticks = scatter_data[ "marker_num" ].unique(), labels = scatter_data[ "marker" ].unique() )
-		sorted_strains = scatter_data.sort_values( by = "strain_num" )[ "strain" ].unique()
-		plt.xticks( ticks = scatter_data[ "strain_num" ].unique(), labels = sorted_strains, rotation = 45, ha = 'right', fontsize = 10 )
-		for tick in scatter_data[ "strain_num" ].unique() :
-			plt.axvline( tick, color = 'grey', linestyle = ':', linewidth = 0.5, alpha = 0.5 )
+		plt.xticks(rotation=45, ha='right', fontsize=10)
+		for i, strain in enumerate(sorted_strains):
+			plt.axvline(i, color='grey', linestyle=':', linewidth=0.5, alpha=0.5)
+
+		# Add brackets and labels
+		bracket_y = -9
+		label_y = -9.5
+		for pathotype, (start, end) in group_positions.items():
+			plt.annotate('', xy=(start, bracket_y), xytext=(end, bracket_y), arrowprops=dict(arrowstyle='|-|,widthA=0.5,widthB=0.5',
+																				color='black', lw=1.5), annotation_clip=False)
+			plt.annotate(pathotype, xy=((start + end)/2, label_y), ha='center', va='top', annotation_clip=False)
+		plt.subplots_adjust(bottom=0.25)
+
 		plt.title( "Marker gene alignment" )
-		plt.ylabel( "Marker" )
-		plt.xlabel( "Strain" )
+		plt.ylabel( "Marker" , fontsize=18)
+		plt.xlabel( "Strain" , fontsize=18)
 		plt.legend( title = "Value" )
 		plt.savefig( dir_out + "/marker_alignment_result.svg" )
 		plt.savefig( dir_out + "/marker_alignment_result.png" )
+
+if __name__ == "__main__":
+    pa = pathotype_alignment()
+    pa.marker_pathotype()

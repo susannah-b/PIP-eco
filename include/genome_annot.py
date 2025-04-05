@@ -14,7 +14,7 @@ class gannot :
 				shutil.copy( src_file0, des_file0 )
 		num_cores = multiprocessing.cpu_count()
 		#print ( num_cores )
-		path_genome = pipeco.path_input
+		path_genome = os.path.join(os.getcwd(), "input", "fasta") # Allows scripts to be run independently
 		lst_genome = os.listdir( path_genome )
 		for genome0 in tqdm( lst_genome, desc = "Processing genome annotation" ) :
 			genome = "%s/%s" %( path_genome, genome0 )
@@ -66,3 +66,6 @@ class gannot :
 		# 	print ( command )
 		# 	(exitstatus, outtext) = subprocess.getstatusoutput( "%s" % command )
 		# 	print ( outtext )
+
+if __name__ == "__main__":
+    gannot.prokka_sc()
